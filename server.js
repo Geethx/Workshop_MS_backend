@@ -17,7 +17,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: "https://workshop-ms-frontend.vercel.app",
+  origin: "https://bisalhardware.vercel.app/",
   credentials: true, // Important if you're sending cookies or authorization headers
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
