@@ -15,9 +15,26 @@ exports.register = async (req, res) => {
       });
     }
 
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Sanitize name input
+    const sanitizedName = name.trim();
+    if (sanitizedName.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name must be at least 2 characters long'
+      });
+    }
+
     // Check if user already exists (case-insensitive)
     const existingUser = await User.findOne({ 
-      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } 
+      name: { $regex: new RegExp(`^${sanitizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } 
     });
     if (existingUser) {
       return res.status(400).json({
@@ -26,23 +43,23 @@ exports.register = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with higher cost factor
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // Create new user
     const user = new User({
-      name,
+      name: sanitizedName,
       password: hashedPassword,
       role: role || 'staff'
     });
 
     await user.save();
 
-    // Generate token
+    // Generate token with shorter expiry for better security
     const token = jwt.sign(
       { userId: user._id, name: user.name, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' } // Changed from 7d to 24h
     );
 
     res.status(201).json({
@@ -56,10 +73,10 @@ exports.register = async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Registration error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error registering user',
-      error: error.message
+      message: 'Error registering user'
     });
   }
 };
@@ -68,27 +85,28 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { name, password } = req.body;
-    console.log('Login attempt:', { name, passwordProvided: !!password });
 
     // Validate input
     if (!name || !password) {
-      console.log('Validation failed: missing name or password');
       return res.status(400).json({
         success: false,
         message: 'Please enter both username and password'
       });
     }
 
+    // Sanitize name and escape special regex characters
+    const sanitizedName = name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // Find user with case-insensitive name search and include password field
     const user = await User.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+      name: { $regex: new RegExp(`^${sanitizedName}$`, 'i') } 
     }).select('+password');
     
     if (!user) {
-      console.log('User not found for name:', name);
+      // Generic error message to prevent username enumeration
       return res.status(401).json({
         success: false,
-        message: 'Login credentials incorrect. Please try again.'
+        message: 'Invalid credentials. Please try again.'
       });
     }
 
@@ -100,21 +118,21 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Check password
+    // Check password - use timing-safe comparison
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      console.log('Invalid password for user:', name);
+      // Generic error message to prevent username enumeration
       return res.status(401).json({
         success: false,
-        message: 'Login credentials incorrect. Please try again.'
+        message: 'Invalid credentials. Please try again.'
       });
     }
 
-    // Generate token
+    // Generate token with shorter expiry
     const token = jwt.sign(
       { userId: user._id, name: user.name, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '24h' } // Changed from 7d to 24h for better security
     );
 
     res.json({
