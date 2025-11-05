@@ -80,8 +80,10 @@ exports.login = async (req, res) => {
     }
 
     // Find user with case-insensitive name search and include password field
-    const user = await User.findOne({name:name}).select('+password');
-    console.log('User lookup result:', user.password);
+    const user = await User.findOne({ 
+      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+    }).select('+password');
+    
     if (!user) {
       console.log('User not found for name:', name);
       return res.status(401).json({
