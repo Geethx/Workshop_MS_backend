@@ -11,6 +11,9 @@ const hpp = require('hpp');
 // Load environment variables
 dotenv.config();
 
+// Set timezone to Sri Lanka
+process.env.TZ = 'Asia/Colombo';
+
 // Import routes
 const authRoutes = require('./routes/auth.routes');
 const itemRoutes = require('./routes/item.routes');
